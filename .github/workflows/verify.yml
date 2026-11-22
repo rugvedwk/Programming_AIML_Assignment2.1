@@ -53,8 +53,18 @@ jobs:
           --output quickstart.executed.ipynb
           --output-dir "${{ runner.temp }}"
           demo/quickstart.ipynb
+      - name: Execute the streaming notebook from a fresh kernel
+        run: >-
+          jupyter nbconvert --execute --to notebook
+          --ExecutePreprocessor.kernel_name=numcompute
+          --ExecutePreprocessor.timeout=180
+          --output stream_demo.executed.ipynb
+          --output-dir "${{ runner.temp }}"
+          demo/stream_demo.ipynb
       - name: Verify benchmark output agreement and command
         run: python benchmark/run_benchmarks.py --quick --repeats 2 --out "${{ runner.temp }}/benchmarks"
+      - name: Verify streaming split agreement and buffer replays
+        run: python benchmark/run_stream_benchmarks.py --quick --repeats 2 --out "${{ runner.temp }}/stream-benchmarks"
       - name: Build and install a wheel
         run: |
           python -m pip wheel . --no-deps --wheel-dir dist

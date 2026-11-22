@@ -194,6 +194,32 @@ The plotting functions in `numcompute_stream.visualise` return Matplotlib
 axes for metric traces, model comparisons and the latest prediction pairs.
 Use `save_path` for file output and `show=True` for interactive display.
 
+### Run the streaming demo and benchmark
+
+After installing the development dependencies with `python -m pip install -e ".[dev]"`,
+open [the streaming notebook](demo/stream_demo.ipynb) with
+`jupyter notebook demo/stream_demo.ipynb`. It loads the Adelaide CSV in
+chronological chunks, logs warm-up and retraining, and shows prediction
+coverage, accuracy on shared rows, and the latest predictions.
+
+Execute it from a fresh kernel and write the result to a separate directory:
+
+```sh
+python -m ipykernel install --sys-prefix --name numcompute-stream
+jupyter nbconvert --execute --to notebook --ExecutePreprocessor.kernel_name=numcompute-stream --output stream_demo.executed.ipynb --output-dir /tmp/numcompute-stream-demo demo/stream_demo.ipynb
+python benchmark/run_stream_benchmarks.py --repeats 5 --out /tmp/numcompute-stream
+```
+
+On Windows, use an existing writable directory in place of `/tmp`.
+
+The [recorded benchmark](benchmark/stream_results.md) checked split agreement
+before measuring a **6.47× to 8.27×** speedup for the vectorised Gini split
+over the Python sweep at 500 to 10,000 rows. In the separate synthetic drift
+experiment, a 128-row buffer retrained 32 times and scored 76.5% on the first
+1,024 rows after the reversal. A 1,024-row buffer retrained four times and scored
+9.9% on those same rows. The report includes coverage, timing, and retained
+array estimates alongside the accuracy figures.
+
 ## Assignment 2.1
 
 A modular scientific computing toolkit for Programming AIML Assignment 2.1,
