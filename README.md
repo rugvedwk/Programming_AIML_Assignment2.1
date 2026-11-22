@@ -93,6 +93,34 @@ when its variance exceeds float64 range. A regression test merges `1e16` with
 `-1e16 + 2`. Summing the weighted means when their signs differ preserves
 the true residual, which was lost when the merge formed the difference first.
 
+### Incremental preprocessing
+
+```python
+import numpy as np
+from numcompute_stream.preprocessing import Imputer, OneHotEncoder, StandardScaler
+
+impute = Imputer().partial_fit([[2.0], [np.nan]]).partial_fit([[4.0]])
+assert impute.transform([[np.nan]]).tolist() == [[3.0]]
+
+scale = StandardScaler().partial_fit([[2.0]]).partial_fit([[4.0]])
+assert scale.transform([[2.0], [4.0]]).tolist() == [[-1.0], [1.0]]
+
+encode = OneHotEncoder().partial_fit([["dry"]])
+encode.partial_fit([["wet"]])
+assert encode.transform([["dry"], ["wet"]]).tolist() == [[1.0, 0.0], [0.0, 1.0]]
+```
+
+All three transformers support `fit`, `partial_fit` and `transform`.
+The scaler leaves NaNs in place. The imputer fills them with the running
+column mean and uses a configurable fallback until the first valid value.
+The encoder assigns new categories to additional output columns and keeps
+earlier IDs stable. It learns NaN as a category when observed and defaults
+to zero indicators for unseen values. The scaler and imputer retain only
+column summaries. The encoder retains the vocabulary.
+
+Run the statistics and preprocessing checks with
+`python -m pytest tests/test_stream_stats.py tests/test_stream_preprocessing.py -W error`.
+
 ## Assignment 2.1
 
 A modular scientific computing toolkit for Programming AIML Assignment 2.1,
