@@ -32,7 +32,6 @@ from chunk 13. The notebook shows the log, three plots and the last ten forecast
 | Design, worked Gini split, regression cases and measured tradeoffs | [Editable report](docs/submission/NumCompute-streaming-report.docx) · [Three-page PDF](docs/submission/NumCompute-streaming-report.pdf) |
 | Reproducible streaming workflow | [Weather notebook](demo/stream_demo.ipynb) · [Run the full benchmark](#run-the-streaming-demo-and-benchmark) |
 | Comparison data | [Split timings](benchmark/stream_split.csv) · [Buffer summaries](benchmark/stream_buffers.csv) · [Per-chunk results](benchmark/stream_chunks.csv) |
-| Five-minute demo preparation | [Timed narration and screen cues](docs/submission/video-script.md) |
 
 A clean Python 3.11.13 environment installed both packages and passed 916 tests
 and doctests with warnings treated as errors. These include 152 Part 2 cases.
@@ -462,7 +461,7 @@ preservation. References include Python sorting/bisect, NumPy reductions,
 hand-counted metrics and analytic derivatives. Integration tests combine CSV
 loading, numeric/category preprocessing, a pipeline, metrics and streaming stats.
 
-[Audit closure](docs/audit_fixes.md) records reproducible failing-before and
+[Audit closure](https://github.com/rugvedwk/Programming_AIML_Assignment2.1/blob/c9a91ec0a7152bc2a7e529fa04e4291a07d618b5/docs/audit_fixes.md) records reproducible failing-before and
 passing-after examples. [Development history](docs/development.md) and the
 [Member B acceptance review](docs/member_b_review.md) preserve checkpoint evidence.
 

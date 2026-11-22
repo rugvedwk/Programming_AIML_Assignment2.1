@@ -323,7 +323,7 @@ The full suite now passes 764 tests/doctests without skips on both NumPy 1.24.4
 and 2.4.6 with Python 3.11.13. A wheel was installed and imported outside the
 checkout. Both README examples and the full 18-case/five-round benchmark run
 completed. New tests reproduce genuine failures; no artificial buggy commits
-were introduced. See [audit closure](audit_fixes.md) for counterexamples, test
+were introduced. See [audit closure](https://github.com/rugvedwk/Programming_AIML_Assignment2.1/blob/c9a91ec0a7152bc2a7e529fa04e4291a07d618b5/docs/audit_fixes.md) for counterexamples, test
 results, measurements and remaining verification limitations.
 
 The requested notebook edit and later fresh-kernel run were declined. The team

@@ -2,7 +2,7 @@
 
 **25 October integration update:** the original checkpoint-7 evidence below is
 preserved as history. All team modules are now merged, benchmarks were rerun,
-and the post-merge audit fixes are documented in [audit closure](audit_fixes.md).
+and the post-merge audit fixes are documented in [audit closure](https://github.com/rugvedwk/Programming_AIML_Assignment2.1/blob/c9a91ec0a7152bc2a7e529fa04e4291a07d618b5/docs/audit_fixes.md).
 The current suite passes 764 checks on both NumPy 1.24.4 and 2.4.6. Notebook
 reverification and hosted CI are pending; report/video work follows next.
 
