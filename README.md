@@ -1,11 +1,44 @@
 # NumCompute
 
-## Assignment 2.2 development
+## Assignment 2.2 streaming decision tree
 
 The individual branch `assignment-2.2-rugved` extends the group package from
 commit `b6ad225e005a6332cf65a7a19126c54be7a3370c`. Install from this branch to
 import both the Part 1 package (`numcompute`) and the Part 2 extension
 (`numcompute_stream`).
+
+### Start here
+
+From the repository root on this branch, use Python 3.10 or newer:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pip check
+python -m pytest tests --doctest-modules numcompute numcompute_stream -W error
+python -m ipykernel install --sys-prefix --name numcompute-stream --display-name "NumCompute streaming"
+jupyter notebook demo/stream_demo.ipynb
+```
+
+On Windows, use `py -m venv .venv` and activate with `.venv\Scripts\Activate.ps1`.
+Select the **NumCompute streaming** kernel, then restart and run all cells. The
+included CSV supplies 360 labelled days in date order. The 30-row tree first
+trains on chunk 3 and first predicts on chunk 4. All three trees have predictions
+from chunk 13. The notebook shows the log, three plots and the last ten forecasts.
+
+| Submission evidence | Where to find it |
+| --- | --- |
+| Design, worked Gini split, regression cases and measured tradeoffs | [Editable report](docs/submission/NumCompute-streaming-report.docx) · [Three-page PDF](docs/submission/NumCompute-streaming-report.pdf) |
+| Reproducible streaming workflow | [Weather notebook](demo/stream_demo.ipynb) · [Run the full benchmark](#run-the-streaming-demo-and-benchmark) |
+| Comparison data | [Split timings](benchmark/stream_split.csv) · [Buffer summaries](benchmark/stream_buffers.csv) · [Per-chunk results](benchmark/stream_chunks.csv) |
+| Five-minute demo preparation | [Timed narration and screen cues](docs/submission/video-script.md) |
+
+A clean Python 3.11.13 environment installed both packages and passed 916 tests
+and doctests with warnings treated as errors. These include 152 Part 2 cases.
+Both notebooks executed from fresh kernels. The full streaming benchmark
+reproduced the recorded accuracy, coverage and retrain schedule across all 192
+per-chunk records. Wall-clock measurements vary by run.
 
 ### Batch classification tree
 
@@ -229,8 +262,7 @@ also received an integration audit and focused numerical/API fixes.
 
 **Verification:** 764 unit/doctest checks pass with warnings treated as errors,
 on Python 3.11.13 with both NumPy 1.24.4 and 2.4.6. The merged demo baseline
-passed a fresh-kernel run; post-fix notebook execution is configured in CI and
-remains to be verified. The report and video are separate submission deliverables.
+and the current individual branch both passed fresh-kernel execution.
 
 ## Install and verify
 
@@ -242,7 +274,7 @@ In the repository root, run:
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
-python -m pytest tests --doctest-modules numcompute -W error
+python -m pytest tests --doctest-modules numcompute numcompute_stream -W error
 python -m pip check
 ```
 
