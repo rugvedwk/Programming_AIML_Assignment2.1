@@ -5,8 +5,41 @@
 The individual branch `assignment-2.2-rugved` extends the group package from
 commit `b6ad225e005a6332cf65a7a19126c54be7a3370c`. Install from this branch to
 import both the Part 1 package (`numcompute`) and the Part 2 extension
-(`numcompute_stream`). At this checkpoint, the extension contains the package
-scaffold. The decision tree and streaming APIs follow in later checkpoints.
+(`numcompute_stream`).
+
+### Batch classification tree
+
+```python
+import numpy as np
+from numcompute_stream.tree import DecisionTreeClassifier
+
+X = np.array([[0.0], [1.0], [2.0], [np.nan]])
+y = ["dry", "dry", "wet", "wet"]
+tree = DecisionTreeClassifier(max_depth=2, criterion="entropy").fit(X, y)
+assert tree.predict([[0.0], [2.0], [np.nan]]).tolist() == ["dry", "wet", "wet"]
+assert tree.classes_.tolist() == ["dry", "wet"]
+assert tree.predict_proba([[2.0]]).tolist() == [[0.0, 1.0]]
+```
+
+The tree sorts each candidate feature and scores boundaries between distinct
+observed values. It accumulates the change in one class's impurity term as
+each row moves across the boundary. This uses linear scratch space in rows and
+classes per feature. Each split learns a route for NaNs. Missingness can also
+form its own split when observed values are constant. Numeric thresholds use
+observed lower endpoints so adjacent floats and large integers stay separable.
+Equal gains favour the lower feature index and then the lower threshold.
+
+For the twelve-student course example, the root starts with five passes and
+seven fails. Splitting on assignment submission gives child counts of
+zero passes and five fails, and five passes and two fails. Gini gain is
+`35/72 − 5/21 = 125/504`, about 0.248. The tests verify this split and compare
+both criteria against a brute-force search on small multiclass datasets.
+On a 10,000-row regression case, a sequential entropy sum produced a small
+positive gain even though every possible split preserved the class proportions.
+Pairwise summation limits this rounding error and keeps the root as a single leaf.
+
+Run the new tree tests with `python -m pytest tests/test_stream_tree.py -W error`.
+Buffered retraining through `partial_fit` is the next checkpoint.
 
 ## Assignment 2.1
 
