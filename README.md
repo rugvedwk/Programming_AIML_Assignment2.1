@@ -158,6 +158,42 @@ admit a changing feature count.
 
 Run the pipeline checks with `python -m pytest tests/test_stream_pipeline.py -W error`.
 
+### Evaluation and visualisation
+
+```python
+from numcompute_stream.stream import StreamTrainer
+from numcompute_stream.tree import DecisionTreeClassifier
+from numcompute_stream.visualise import plot_metric_over_time
+
+trainer = StreamTrainer(DecisionTreeClassifier(buffer_size=2), window_size=4)
+trainer.fit_chunk([[0], [1]], [0, 1])  # Warm-up
+preview = trainer.score_chunk([[0], [1]], [0, 1])
+assert preview.accuracy == 1.0 and trainer.result()["count"] == 0
+trainer.fit_chunk([[0], [1]], [0, 1])
+assert trainer.result()["count"] == 2
+ax = plot_metric_over_time([entry.chunk_accuracy for entry in trainer.logs],
+                           "Accuracy before each update", "Accuracy")
+assert len(ax.lines[0].get_ydata()) == 2
+```
+
+`fit_chunk` scores with the previously deployed model, trains, and adds
+one log entry. `score_chunk` is a read-only preview. The logs include warm-up
+gaps, scored sample counts, retrain events, and the elapsed update time for
+triggering chunks. The memory estimate covers retained model and buffer NumPy
+arrays. Python overhead, metrics, logs and temporary training allocations are
+outside that estimate.
+
+`StreamingMetrics` supports cumulative or row-windowed accuracy, precision,
+recall, F1, confusion matrices and binary AUC. Pass the positive class (such as
+`pos_label="Yes"`) when using string labels. AUC uses positive-class
+probabilities, grants half credit for tied scores, and returns NaN until both
+classes have scores. Exact cumulative AUC stores counts for each distinct
+score and true label. A rolling window bounds that storage.
+
+The plotting functions in `numcompute_stream.visualise` return Matplotlib
+axes for metric traces, model comparisons and the latest prediction pairs.
+Use `save_path` for file output and `show=True` for interactive display.
+
 ## Assignment 2.1
 
 A modular scientific computing toolkit for Programming AIML Assignment 2.1,
@@ -172,8 +208,9 @@ remains to be verified. The report and video are separate submission deliverable
 
 ## Install and verify
 
-Use Python **3.10 or newer**. NumPy is the only runtime dependency; pytest and
-Jupyter are development tools. From the repository root:
+Use Python **3.10 or newer**. This branch uses NumPy for computation and
+Matplotlib for Part 2 plots. Pytest and Jupyter are development tools.
+In the repository root, run:
 
 ```sh
 python3 -m venv .venv
