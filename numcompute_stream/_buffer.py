@@ -2,14 +2,7 @@
 
 import numpy as np
 
-
-def _wide_integer(source, target):
-    """Whether converting the source integer dtype can lose bits in a float."""
-    return (
-        source.kind in "iu"
-        and target.kind == "f"
-        and np.iinfo(source).bits - (source.kind == "i") > np.finfo(target).nmant + 1
-    )
+from ._validation import _discrete_kind, _wide_integer
 
 
 def _check_feature_promotion(X, dtype):
@@ -23,18 +16,6 @@ def _check_feature_promotion(X, dtype):
         converted.astype(X.dtype), X
     ):
         raise ValueError("mixing these feature dtypes would lose integer precision")
-
-
-def _label_kind(y):
-    if y.dtype.kind != "O":
-        return y.dtype.kind if y.dtype.kind in "US" else "numeric"
-    kinds = {
-        "U" if isinstance(value, str) else "S" if isinstance(value, bytes) else "numeric"
-        for value in y
-    }
-    if len(kinds) != 1:
-        raise TypeError("y must contain mutually comparable labels of one kind")
-    return kinds.pop()
 
 
 def _join_labels(chunks):
@@ -63,7 +44,7 @@ class _TrainingBuffer:
             raise ValueError(f"X has {X.shape[1]} features but the buffer expects {expected}")
         if not len(X):
             return 0
-        kind = _label_kind(y)
+        kind = _discrete_kind(y)
         if self._kind is not None and kind != self._kind:
             raise TypeError("y label kind must match the pending chunks")
         dtype = X.dtype

@@ -68,6 +68,31 @@ For evaluation, predict on a chunk before using that chunk to update the model.
 Run the tree tests with
 `python -m pytest tests/test_stream_tree.py tests/test_stream_buffer.py -W error`.
 
+### Streaming statistics
+
+```python
+from numcompute_stream.stats import StreamingStats, update_stats
+
+recent = StreamingStats(window_size=3, bins=[0, 2, 4, 6])
+update_stats([[1.0], [2.0]], stats=recent)
+update_stats([[3.0], [5.0]], stats=recent)
+assert recent.count.tolist() == [3]
+assert recent.quantile(0.5).tolist() == [3.0]
+assert recent.histogram()[0].tolist() == [[0, 2, 1]]
+```
+
+Statistics reduce rows independently for each feature and omit NaNs. The
+histogram uses fixed edges and includes the final right edge. By default exact
+cumulative quantiles retain every row. Set `track_quantiles=False` for
+cumulative moments and optional histograms without retaining raw rows, or set
+`window_size` to query the last specified number of rows.
+
+Chan's parallel variance formula combines the chunk summaries. The accumulator
+combines standard deviations with `hypot` so a finite scale can survive even
+when its variance exceeds float64 range. A regression test merges `1e16` with
+`-1e16 + 2`. Summing the weighted means when their signs differ preserves
+the true residual, which was lost when the merge formed the difference first.
+
 ## Assignment 2.1
 
 A modular scientific computing toolkit for Programming AIML Assignment 2.1,

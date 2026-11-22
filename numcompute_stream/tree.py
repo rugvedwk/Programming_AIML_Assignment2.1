@@ -7,7 +7,8 @@ import numpy as np
 from numcompute.pipeline import BaseEstimator, NotFittedError
 from numcompute.utils import check_array, check_labels, check_same_length
 
-from ._buffer import _TrainingBuffer, _wide_integer
+from ._buffer import _TrainingBuffer
+from ._validation import _wide_integer
 
 __all__ = ["DecisionTreeClassifier"]
 
