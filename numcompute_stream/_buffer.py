@@ -25,6 +25,13 @@ def _join_labels(chunks):
     return np.concatenate(chunks, dtype=dtype)
 
 
+def _feature_dtype(previous, incoming):
+    """Promote numeric chunks while preserving distinct categorical types."""
+    if previous.kind != incoming.kind and (previous.kind in "US" or incoming.kind in "US"):
+        return np.dtype(object)
+    return np.result_type(previous, incoming)
+
+
 class _TrainingBuffer:
     """Own pending arrays and hand one assembled batch to a fitting callback."""
 
@@ -49,7 +56,7 @@ class _TrainingBuffer:
             raise TypeError("y label kind must match the pending chunks")
         dtype = X.dtype
         if self._dtype is not None:
-            dtype = np.result_type(self._dtype, dtype)
+            dtype = _feature_dtype(self._dtype, dtype)
             if dtype != self._dtype:
                 for previous_X, _ in self._chunks:
                     _check_feature_promotion(previous_X, dtype)

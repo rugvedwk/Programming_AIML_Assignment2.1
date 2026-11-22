@@ -8,7 +8,7 @@ from numcompute.pipeline import BaseEstimator, NotFittedError
 from numcompute.utils import check_array, check_labels, check_same_length
 
 from ._buffer import _TrainingBuffer
-from ._validation import _wide_integer
+from ._validation import _integer, _wide_integer
 
 __all__ = ["DecisionTreeClassifier"]
 
@@ -42,14 +42,6 @@ class _Tree:
     classes: np.ndarray
     n_features: int
     nodes: tuple
-
-
-def _integer(value, name, minimum):
-    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
-        raise TypeError(f"{name} must be an integer")
-    if value < minimum:
-        raise ValueError(f"{name} must be at least {minimum}; got {value}")
-    return int(value)
 
 
 def _feature_count(max_features, n_features):

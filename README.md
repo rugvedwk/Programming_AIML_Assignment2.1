@@ -121,6 +121,43 @@ column summaries. The encoder retains the vocabulary.
 Run the statistics and preprocessing checks with
 `python -m pytest tests/test_stream_stats.py tests/test_stream_preprocessing.py -W error`.
 
+### Streaming pipeline
+
+```python
+from numcompute_stream.pipeline import Pipeline
+from numcompute_stream.preprocessing import OneHotEncoder
+from numcompute_stream.tree import DecisionTreeClassifier
+
+pipe = Pipeline([
+    ("encode", OneHotEncoder()),
+    ("tree", DecisionTreeClassifier(buffer_size=2)),
+])
+pipe.partial_fit([["dry"], ["wet"]], [0, 1])
+pipe.partial_fit([["fog"]], [2])
+assert pipe.transform([["fog"]]).tolist() == [[0.0, 0.0]]
+assert pipe.predict([["dry"], ["wet"]]).tolist() == [0, 1]
+
+pipe.partial_fit([["dry"]], [0])
+assert pipe.n_retrains_ == 2
+assert pipe.transform([["fog"]]).tolist() == [[0.0, 0.0, 1.0]]
+assert pipe.predict([["dry"], ["fog"]]).tolist() == [0, 2]
+```
+
+The pipeline updates its transformers on incoming chunks and buffers raw rows.
+At a retrain it transforms the whole buffer using one set of transformer
+states, then deploys those states with the fitted classifier. Predictions and
+probabilities use that pair between retrains. This keeps thresholds and feature
+columns consistent with the tree, even when the live encoder learns a new
+category or the live scaler's mean shifts.
+
+The buffer threshold defaults to the final tree's `buffer_size`. A
+`buffer_size` argument on the pipeline overrides it. Downstream transformers
+learn from the representation they receive when each chunk arrives. Place
+width-growing stages last among the transformers unless their successors can
+admit a changing feature count.
+
+Run the pipeline checks with `python -m pytest tests/test_stream_pipeline.py -W error`.
+
 ## Assignment 2.1
 
 A modular scientific computing toolkit for Programming AIML Assignment 2.1,

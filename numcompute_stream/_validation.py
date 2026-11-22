@@ -5,6 +5,15 @@ import numpy as np
 from numcompute.utils import check_array
 
 
+def _integer(value, name, minimum):
+    """Validate an integer setting while rejecting boolean flags."""
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
+        raise TypeError(f"{name} must be an integer")
+    if value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}; got {value}")
+    return int(value)
+
+
 def _numeric_matrix(X):
     X = check_array(X, ensure_2d=True, dtype=np.float64, allow_inf=False)
     if not X.shape[1]:
