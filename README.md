@@ -38,8 +38,35 @@ On a 10,000-row regression case, a sequential entropy sum produced a small
 positive gain even though every possible split preserved the class proportions.
 Pairwise summation limits this rounding error and keeps the root as a single leaf.
 
-Run the new tree tests with `python -m pytest tests/test_stream_tree.py -W error`.
-Buffered retraining through `partial_fit` is the next checkpoint.
+### Buffered retraining
+
+```python
+from numcompute_stream.tree import DecisionTreeClassifier
+
+tree = DecisionTreeClassifier(max_depth=1, buffer_size=5)
+tree.partial_fit([[0], [1], [2]], ["dry"] * 3)
+assert tree.pending_rows_ == 3
+
+tree.partial_fit([[3], [4], [5], [6]], ["wet"] * 4)
+assert tree.n_retrains_ == 1
+assert tree.last_retrain_size_ == 7
+assert tree.pending_rows_ == 0
+assert tree.predict([[0], [6]]).tolist() == ["dry", "wet"]
+
+tree.partial_fit([[0]], ["wet"])
+assert tree.pending_rows_ == 1
+assert tree.predict([[0]]).tolist() == ["dry"]
+```
+
+Each call buffers the whole chunk. Crossing the threshold fits one fresh tree
+on all buffered rows and clears the buffer. Predictions use the last fitted
+tree until the next successful retrain. Before the first fit or retrain,
+prediction raises `NotFittedError`. A final short buffer stays pending.
+An explicit `fit` replaces the tree and starts a fresh buffer and counters.
+For evaluation, predict on a chunk before using that chunk to update the model.
+
+Run the tree tests with
+`python -m pytest tests/test_stream_tree.py tests/test_stream_buffer.py -W error`.
 
 ## Assignment 2.1
 

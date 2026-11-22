@@ -1,4 +1,4 @@
-"""Batch classification trees with vectorised split search."""
+"""Classification trees with vectorised splits and buffered retraining."""
 
 from dataclasses import dataclass
 
@@ -6,6 +6,8 @@ import numpy as np
 
 from numcompute.pipeline import BaseEstimator, NotFittedError
 from numcompute.utils import check_array, check_labels, check_same_length
+
+from ._buffer import _TrainingBuffer, _wide_integer
 
 __all__ = ["DecisionTreeClassifier"]
 
@@ -191,11 +193,7 @@ def _best_split(X, rows, codes, counts, features, criterion):
 def _left_mask(values, split):
     threshold = split.threshold
     common = np.result_type(values.dtype, threshold.dtype)
-    if common.kind == "f" and any(
-        dtype.kind in "iu"
-        and np.iinfo(dtype).bits - (dtype.kind == "i") > np.finfo(common).nmant + 1
-        for dtype in (values.dtype, threshold.dtype)
-    ):
+    if any(_wide_integer(dtype, common) for dtype in (values.dtype, threshold.dtype)):
         # Python's exact float/int comparison preserves large integer boundaries.
         left = values.astype(object) <= threshold.item()
     else:
@@ -249,8 +247,8 @@ class DecisionTreeClassifier(BaseEstimator):
         is multiplied by the total feature count and rounded down, with a
         minimum of one. An integer is the exact count. None considers all.
     buffer_size : int, default 500
-        Positive threshold reserved for the subsequent buffered update API.
-        Batch fitting always uses every input row.
+        Positive number of pending rows that triggers streaming retraining.
+        The training batch includes the entire triggering chunk.
     criterion : {'gini', 'entropy'}, default 'gini'
         Impurity used for weighted information gain. Entropy is measured in bits.
     random_state : int or None, default 0
@@ -264,6 +262,13 @@ class DecisionTreeClassifier(BaseEstimator):
         tied votes. Available after fitting.
     n_features_in_ : int
         Feature count used at fit. Available after fitting.
+    pending_rows_ : int
+        Number of rows waiting for the next streaming retrain.
+    n_retrains_ : int
+        Number of successful threshold-triggered fits since construction or the
+        last explicit fit. The first threshold-triggered fit counts.
+    last_retrain_size_ : int
+        Row count of the last streaming retrain, or zero before the first.
 
     Notes
     -----
@@ -283,6 +288,9 @@ class DecisionTreeClassifier(BaseEstimator):
         self.buffer_size = buffer_size
         self.criterion = criterion
         self.random_state = random_state
+        self._buffer = _TrainingBuffer()
+        self.n_retrains_ = 0
+        self.last_retrain_size_ = 0
 
     @property
     def classes_(self):
@@ -293,6 +301,41 @@ class DecisionTreeClassifier(BaseEstimator):
     def n_features_in_(self):
         """Number of input features observed at fit."""
         return self._tree.n_features
+
+    @property
+    def pending_rows_(self):
+        """Number of rows waiting for the next streaming retrain."""
+        return self._buffer.rows
+
+    def _training_parameters(self, n_features):
+        max_depth = _integer(self.max_depth, "max_depth", 0)
+        min_samples_split = _integer(self.min_samples_split, "min_samples_split", 2)
+        seed = None if self.random_state is None else _integer(self.random_state, "random_state", 0)
+        if not isinstance(self.criterion, str) or self.criterion not in ("gini", "entropy"):
+            raise ValueError("criterion must be 'gini' or 'entropy'")
+        return (_feature_count(self.max_features, n_features), max_depth,
+                min_samples_split, self.criterion, seed)
+
+    @staticmethod
+    def _training_arrays(X, y):
+        X = check_array(X, ensure_2d=True, allow_inf=False)
+        y = check_labels(y)
+        check_same_length(X, y)
+        if not X.shape[1]:
+            raise ValueError("training requires at least one feature")
+        return X, y
+
+    def _train(self, X, y, parameters):
+        """Build the replacement completely before publishing it."""
+        feature_count, max_depth, min_samples_split, criterion, seed = parameters
+        try:
+            classes, codes = np.unique(y, return_inverse=True)
+        except TypeError as exc:
+            raise TypeError("y must contain mutually comparable labels") from exc
+        nodes = _build_nodes(X, codes, len(classes), feature_count, max_depth,
+                             min_samples_split, criterion, np.random.default_rng(seed))
+        classes.setflags(write=False)
+        self._tree = _Tree(classes, X.shape[1], nodes)
 
     def fit(self, X, y):
         """Fit a fresh tree to the entire batch and return self.
@@ -313,32 +356,71 @@ class DecisionTreeClassifier(BaseEstimator):
 
         Notes
         -----
-        Inputs are never modified. A failed fit preserves the previous tree.
+        Inputs are never modified. A successful fit drops pending rows and
+        resets streaming counters. A failed fit preserves the model and buffer.
         At a node with m rows, k candidate features and c known classes, split
         search takes O(k * (m log m + c)) time and O(m + c) scratch per feature.
         Fit repeats the search at eligible nodes and stores splits and sparse
         leaf class frequencies.
         """
-        max_depth = _integer(self.max_depth, "max_depth", 0)
-        min_samples_split = _integer(self.min_samples_split, "min_samples_split", 2)
         _integer(self.buffer_size, "buffer_size", 1)
-        seed = None if self.random_state is None else _integer(self.random_state, "random_state", 0)
-        if not isinstance(self.criterion, str) or self.criterion not in ("gini", "entropy"):
-            raise ValueError("criterion must be 'gini' or 'entropy'")
-        X = check_array(X, ensure_2d=True, allow_inf=False)
-        y = check_labels(y)
-        check_same_length(X, y)
-        if not X.shape[0] or not X.shape[1]:
-            raise ValueError("fit requires at least one sample and one feature")
-        feature_count = _feature_count(self.max_features, X.shape[1])
-        try:
-            classes, codes = np.unique(y, return_inverse=True)
-        except TypeError as exc:
-            raise TypeError("y must contain mutually comparable labels") from exc
-        nodes = _build_nodes(X, codes, len(classes), feature_count, max_depth,
-                             min_samples_split, self.criterion, np.random.default_rng(seed))
-        classes.setflags(write=False)
-        self._tree = _Tree(classes, X.shape[1], nodes)
+        X, y = self._training_arrays(X, y)
+        if not len(X):
+            raise ValueError("fit requires at least one sample")
+        self._train(X, y, self._training_parameters(X.shape[1]))
+        self._buffer.clear()
+        self.n_retrains_ = 0
+        self.last_retrain_size_ = 0
+        return self
+
+    def partial_fit(self, X_chunk, y_chunk):
+        """Add one chunk and retrain once if enough rows are pending.
+
+        Parameters
+        ----------
+        X_chunk : array_like, shape (n_samples, n_features)
+            Real numeric or boolean features with a consistent column count.
+            NaNs are allowed and infinities are rejected.
+        y_chunk : array_like, shape (n_samples,)
+            Finite labels of one comparable kind within the buffer: numeric,
+            text or bytes. A new trained batch may introduce different classes.
+
+        Returns
+        -------
+        self : DecisionTreeClassifier
+
+        Raises
+        ------
+        TypeError
+            If labels, features or settings use incompatible types.
+        ValueError
+            If the input shape, values or settings are invalid, or combining
+            feature dtypes would round integer values.
+
+        Notes
+        -----
+        Empty chunks with valid shapes are no-ops. Pending data is copied.
+        Reaching or exceeding buffer_size trains on all pending rows and
+        all rows of this chunk, clears the buffer and publishes the new tree.
+        Until then, predict and predict_proba use the current tree and raise
+        NotFittedError if no tree has been trained. A failed update leaves the
+        pending rows, counters and fitted tree intact. There is no implicit
+        flush of a final short buffer.
+
+        Validation and copying are linear in the chunk size. Changing the
+        common feature dtype can require checking pending integer values.
+        Buffer storage is linear in the pending data size. A retrain assembles
+        at most one combined batch and incurs the batch fit cost.
+        """
+        threshold = _integer(self.buffer_size, "buffer_size", 1)
+        X, y = self._training_arrays(X_chunk, y_chunk)
+        if hasattr(self, "_tree"):
+            self._check_n_features(X)
+        parameters = self._training_parameters(X.shape[1])
+        trained = self._buffer.submit(X, y, threshold, lambda X, y: self._train(X, y, parameters))
+        if trained:
+            self.n_retrains_ += 1
+            self.last_retrain_size_ = trained
         return self
 
     def _prediction_leaves(self, X):
