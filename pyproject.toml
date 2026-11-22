@@ -15,7 +15,7 @@ test = ["pytest>=7.0"]
 dev = ["pytest>=7.0", "jupyter"]
 
 [tool.setuptools]
-packages = ["numcompute"]
+packages = ["numcompute", "numcompute_stream"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

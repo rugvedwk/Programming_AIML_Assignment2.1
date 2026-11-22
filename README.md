@@ -1,5 +1,15 @@
 # NumCompute
 
+## Assignment 2.2 development
+
+The individual branch `assignment-2.2-rugved` extends the group package from
+commit `b6ad225e005a6332cf65a7a19126c54be7a3370c`. Install from this branch to
+import both the Part 1 package (`numcompute`) and the Part 2 extension
+(`numcompute_stream`). At this checkpoint, the extension contains the package
+scaffold. The decision tree and streaming APIs follow in later checkpoints.
+
+## Assignment 2.1
+
 A modular scientific computing toolkit for Programming AIML Assignment 2.1,
 built with **plain Python and NumPy**. All required modules, the weather-data
 demo, tests and reproducible benchmarks are implemented. The merged code has
